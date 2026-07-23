@@ -1,6 +1,5 @@
 # PROJECT: Object Recognition in Images
 # CNN-based classifier trained on the CIFAR-10 dataset
-# Author: Sunaina Thomas | VIT BHOPAL 
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,22 +17,12 @@ CLASS_NAMES = ['airplane', 'automobile', 'bird', 'cat', 'deer',
                'dog', 'frog', 'horse', 'ship', 'truck']
 NUM_CLASSES  = 10
 
-
-# ─────────────────────────────────────────────
 # Step 1 – Load and prepare the data
-# ─────────────────────────────────────────────
-# CIFAR-10 comes bundled with Keras, so no manual download needed.
-# It has 50,000 training images and 10,000 test images, each 32×32 pixels.
 
 print("Loading CIFAR-10 dataset...")
 (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
-
-# Pixel values are 0–255 by default; dividing by 255 puts them in [0, 1],
-# which helps the network train faster and more stably.
 x_train = x_train.astype('float32') / 255.0
 x_test  = x_test.astype('float32')  / 255.0
-
-# Labels come as shape (N, 1); flatten to (N,) so loss functions are happy.
 y_train = y_train.flatten()
 y_test  = y_test.flatten()
 
@@ -41,50 +30,40 @@ print(f"  Training images : {x_train.shape}")
 print(f"  Test images     : {x_test.shape}")
 print(f"  Classes         : {CLASS_NAMES}\n")
 
-
-# ─────────────────────────────────────────────
 # Step 2 – Data augmentation
-# ─────────────────────────────────────────────
-# Real-world photos can be flipped, slightly rotated or zoomed.
-# Randomly applying these transforms during training stops the model
-# from memorising exact pixel positions and makes it generalise better.
 
 augmentation = tf.keras.Sequential([
-    layers.RandomFlip("horizontal"),   # a cat is still a cat when mirrored
-    layers.RandomRotation(0.1),        # slight tilt (±18°)
-    layers.RandomZoom(0.1),            # slight zoom in/out
+    layers.RandomFlip("horizontal"),  
+    layers.RandomRotation(0.1),        
+    layers.RandomZoom(0.1),            
 ], name="augmentation")
 
-
-# ─────────────────────────────────────────────
 # Step 3 – Build the CNN
 # ─────────────────────────────────────────────
-# We stack three convolutional blocks. Each block:
+# Stacked three convolutional blocks. Each block:
 #   • Two Conv2D layers  → learn visual patterns (edges → shapes → objects)
 #   • BatchNormalization → keeps activations well-scaled during training
 #   • MaxPooling         → halves the spatial size, reduces computation
 #   • Dropout            → randomly zeroes some neurons to prevent overfitting
-#
-# After the blocks, a Dense layer makes the final class prediction.
 
 def build_cnn():
     inputs = tf.keras.Input(shape=(32, 32, 3), name="image_input")
     x = augmentation(inputs)
 
-    # ── Block 1: detect low-level features (edges, colours) ──
+    # ── Block 1: detect low-level features (edges, colours) 
     x = layers.Conv2D(32, kernel_size=3, padding='same', activation='relu')(x)
     x = layers.BatchNormalization()(x)
     x = layers.Conv2D(32, kernel_size=3, padding='same', activation='relu')(x)
     x = layers.BatchNormalization()(x)
-    x = layers.MaxPooling2D(pool_size=2)(x)   # 32×32 → 16×16
+    x = layers.MaxPooling2D(pool_size=2)(x)  
     x = layers.Dropout(0.25)(x)
 
-    # ── Block 2: detect mid-level features (parts of objects) ──
+    # ── Block 2: detect mid-level features (parts of objects) 
     x = layers.Conv2D(64, kernel_size=3, padding='same', activation='relu')(x)
     x = layers.BatchNormalization()(x)
     x = layers.Conv2D(64, kernel_size=3, padding='same', activation='relu')(x)
     x = layers.BatchNormalization()(x)
-    x = layers.MaxPooling2D(pool_size=2)(x)   # 16×16 → 8×8
+    x = layers.MaxPooling2D(pool_size=2)(x)   
     x = layers.Dropout(0.25)(x)
 
     # ── Block 3: detect high-level features (whole objects) ──
@@ -92,14 +71,14 @@ def build_cnn():
     x = layers.BatchNormalization()(x)
     x = layers.Conv2D(128, kernel_size=3, padding='same', activation='relu')(x)
     x = layers.BatchNormalization()(x)
-    x = layers.MaxPooling2D(pool_size=2)(x)   # 8×8 → 4×4
+    x = layers.MaxPooling2D(pool_size=2)(x)  
     x = layers.Dropout(0.25)(x)
 
     # ── Classifier head ──
-    x = layers.Flatten()(x)                  # 4×4×128 = 2048 values → 1D vector
+    x = layers.Flatten()(x)                  
     x = layers.Dense(256, activation='relu')(x)
     x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)               # heavier dropout before final layer
+    x = layers.Dropout(0.5)(x)               
     outputs = layers.Dense(NUM_CLASSES, activation='softmax', name="predictions")(x)
 
     return tf.keras.Model(inputs, outputs, name="CIFAR10_CNN")
@@ -109,12 +88,11 @@ model = build_cnn()
 model.summary()
 
 
-# ─────────────────────────────────────────────
+
 # Step 4 – Compile and train
-# ─────────────────────────────────────────────
+
 # Adam is a solid all-round optimiser. sparse_categorical_crossentropy
-# is the standard loss for multi-class problems with integer labels.
-#
+# is the standard loss for multi-class problems with integer labals.
 # Two callbacks keep training smart:
 #   EarlyStopping  – stops when validation loss stops improving (saves time)
 #   ReduceLROnPlateau – lowers the learning rate when we hit a plateau
@@ -141,36 +119,29 @@ history = model.fit(
 )
 
 
-# ─────────────────────────────────────────────
 # Step 5 – Evaluate on the test set
-# ─────────────────────────────────────────────
 print("\nEvaluating on 10,000 test images...")
 y_prob = model.predict(x_test, verbose=0)
-y_pred = np.argmax(y_prob, axis=1)   # pick the class with highest probability
+y_pred = np.argmax(y_prob, axis=1)   
 
-# Build the confusion matrix and derive TP / FP / FN / TN for every class.
-# This lets us compute Sensitivity (= Recall) and Specificity cleanly.
 cm = confusion_matrix(y_test, y_pred)
 TP = np.diag(cm)
 FP = cm.sum(axis=0) - TP
 FN = cm.sum(axis=1) - TP
 TN = cm.sum() - (TP + FP + FN)
-
-# Per-class metrics (small epsilon avoids division by zero)
 eps = 1e-9
 precision_per_class   = TP / (TP + FP + eps)
-recall_per_class      = TP / (TP + FN + eps)    # same as Sensitivity
+recall_per_class      = TP / (TP + FN + eps)    
 specificity_per_class = TN / (TN + FP + eps)
 f1_per_class          = (2 * precision_per_class * recall_per_class /
                          (precision_per_class + recall_per_class + eps))
 
-# Overall (macro-averaged) metrics
 accuracy    = accuracy_score(y_test, y_pred)
 precision_m = precision_score(y_test, y_pred, average='macro')
 recall_m    = recall_score(y_test, y_pred, average='macro')
 f1_m        = f1_score(y_test, y_pred, average='macro')
-sensitivity = recall_m                        # Sensitivity = Recall
-specificity = specificity_per_class.mean()   # macro-average across all classes
+sensitivity = recall_m                        
+specificity = specificity_per_class.mean()   
 
 print("\n" + "=" * 55)
 print("  OVERALL PERFORMANCE ON TEST SET")
@@ -184,13 +155,7 @@ print(f"  F1-Score     : {f1_m:.4f}  (macro average)")
 print("=" * 55)
 print("\nDetailed per-class breakdown:")
 print(classification_report(y_test, y_pred, target_names=CLASS_NAMES))
-
-
-# ─────────────────────────────────────────────
 # Step 6 – Visualisations
-# ─────────────────────────────────────────────
-
-# A) How did accuracy and loss change during training?
 fig, axes = plt.subplots(1, 2, figsize=(13, 4))
 
 axes[0].plot(history.history['accuracy'],     label='Training',   linewidth=2)
@@ -209,8 +174,6 @@ plt.tight_layout()
 plt.savefig('training_curves.png', dpi=120)
 plt.show()
 print("Saved: training_curves.png")
-
-# B) Confusion matrix – rows = true labels, columns = predicted labels
 plt.figure(figsize=(11, 8))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
             xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES,
@@ -222,8 +185,6 @@ plt.tight_layout()
 plt.savefig('confusion_matrix.png', dpi=120)
 plt.show()
 print("Saved: confusion_matrix.png")
-
-# C) Side-by-side bar chart of all per-class metrics
 x_pos = np.arange(NUM_CLASSES)
 bar_width = 0.2
 
@@ -244,8 +205,6 @@ plt.tight_layout()
 plt.savefig('per_class_metrics.png', dpi=120)
 plt.show()
 print("Saved: per_class_metrics.png")
-
-# D) Random sample predictions with colour-coded labels
 fig, axes = plt.subplots(3, 6, figsize=(14, 7))
 sample_indices = np.random.choice(len(x_test), 18, replace=False)
 
